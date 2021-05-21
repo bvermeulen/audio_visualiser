@@ -1,7 +1,5 @@
 # audio_visualiser
 
-<p>
-<video width="320" height="240" controls>
-  <source src="Sound_Visualiser.mp4" type="video/mp4">
-</video> 
-</p>
+https://user-images.githubusercontent.com/25360487/119152865-c08d1e80-ba61-11eb-9ecc-419664b59b1c.mp4
+
+
