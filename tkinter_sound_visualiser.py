@@ -1,7 +1,6 @@
 import sys
 import time
 import threading
-# import re
 import struct
 from pathlib import Path
 from enum import auto, IntEnum
@@ -122,7 +121,7 @@ class TkMplSetup:
                 except TclError:
                     self.duration = DEFAULT_DURATION
 
-            # todo: the minus 1 second from self.duration is to align the playing of the
+            # TODO: the minus 1 second from self.duration is to align the playing of the
             # sound and the progress bar, under investigation
             self.time_progress['maximum'] = 1000 * (self.duration - 1.0)
             self.time_progress['value'] = 0
