@@ -414,6 +414,7 @@ class SoundVisualiser(TkMplSetup):
                                       channels=1,
                                       rate=self.fs,
                                       output=True,
+                                      frames_per_buffer=PACKAGE_LENGTH,
                                       stream_callback=self.callback)
 
         self.stream.start_stream()
