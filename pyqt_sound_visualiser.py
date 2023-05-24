@@ -202,7 +202,7 @@ class SoundVisualiser:
         self.canvas.draw()
 
 
-class PyqtMainWindow(QtWidgets.QMainWindow):
+class PyqtViewControl(QtWidgets.QMainWindow):
     '''  PyQt view and control
     '''
     def __init__(self, sv_instance, *args, **kwargs):
@@ -422,8 +422,8 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 def start_app():
     app = QtWidgets.QApplication([])
     sv = SoundVisualiser()
-    main_window = PyqtMainWindow(sv)
-    main_window.show()
+    view_control = PyqtViewControl(sv)
+    view_control.show()
     app.exec()
 
 
