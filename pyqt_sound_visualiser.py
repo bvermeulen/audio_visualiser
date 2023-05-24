@@ -4,8 +4,8 @@ import threading
 import struct
 from pathlib import Path
 from enum import auto, IntEnum
-from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import QTimer
+from PyQt5 import uic, QtWidgets
 import numpy as np
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -55,7 +55,7 @@ class SoundVisualiser:
         self._canvas = MplCanvas()
         self.fig, self.ax = self.canvas.get_fig_ax()
         self.fs = None
-        self._stream = None
+        self.stream = None
         self._start_time = None
         self._volume = None
         self.full_sound_stream = None
@@ -73,52 +73,49 @@ class SoundVisualiser:
     def canvas(self):
         return self._canvas
 
-    @property
-    def stream(self):
-        return self._stream
-
     def generate_sound_stream(self, selected_type, frequency, fs, duration, wave_data=None):
         self.fs = fs
         self.duration = duration
-        if selected_type == SoundType.NOTE:
-            self.full_sound_stream = (
-                (np.sin(2 * np.pi * frequency / self.fs * np.arange(fs * duration))).astype(np.float32)
-            ).astype(np.float32)
+        match selected_type:
+            case SoundType.NOTE:
+                self.full_sound_stream = (
+                    np.sin(2 * np.pi * frequency / self.fs * np.arange(fs * duration))
+                ).astype(np.float32)
 
-        elif selected_type == SoundType.DESIGN:
-            self.full_sound_stream = (
-                (0.5 * np.sin(2 * np.pi * 325 / self.fs * np.arange(fs * duration))) +
-                (0.1 * np.sin(2 * np.pi * 330 / self.fs * np.arange(fs * duration))) +
-                (0.5 * np.sin(2 * np.pi * 340 / self.fs * np.arange(fs * duration))) + 0
-            ).astype(np.float32)
+            case SoundType.DESIGN:
+                self.full_sound_stream = (
+                    (0.5 * np.sin(2 * np.pi * 325 / self.fs * np.arange(fs * duration))) +
+                    (0.1 * np.sin(2 * np.pi * 330 / self.fs * np.arange(fs * duration))) +
+                    (0.5 * np.sin(2 * np.pi * 340 / self.fs * np.arange(fs * duration))) + 0
+                ).astype(np.float32)
 
-        elif selected_type == SoundType.FILE:
-            if wave_data is None:
-                return self.fs, self.duration
+            case SoundType.FILE:
+                if wave_data is None:
+                    return self.fs, self.duration
 
-            frames = wave_data.getnframes()
-            channels = wave_data.getnchannels()
-            sample_width = wave_data.getsampwidth()
-            self.fs = wave_data.getframerate()
-            sound_byte_str = wave_data.readframes(frames)
-            self.duration = frames / self.fs * channels
+                frames = wave_data.getnframes()
+                channels = wave_data.getnchannels()
+                sample_width = wave_data.getsampwidth()
+                self.fs = wave_data.getframerate()
+                sound_byte_str = wave_data.readframes(frames)
+                self.duration = frames / self.fs * channels
 
-            if sample_width == 1:
-                self.fmt = f'{int(frames * channels)}B'
+                if sample_width == 1:
+                    self.fmt = f'{int(frames * channels)}B'
 
-            else:
-                self.fmt = f'{int(frames * channels)}h'
+                else:
+                    self.fmt = f'{int(frames * channels)}h'
 
-            a = struct.unpack(self.fmt, sound_byte_str)
-            a = [float(val) for val in a]
-            sound_stream = np.array(a).astype(np.float32)
-            scale_factor = max(
-                abs(np.min(sound_stream)), abs(np.max(sound_stream))
-            )
-            self.full_sound_stream = sound_stream / scale_factor
+                a = struct.unpack(self.fmt, sound_byte_str)
+                a = [float(val) for val in a]
+                sound_stream = np.array(a).astype(np.float32)
+                scale_factor = max(
+                    abs(np.min(sound_stream)), abs(np.max(sound_stream))
+                )
+                self.full_sound_stream = sound_stream / scale_factor
 
-        else:
-            raise ValueError(f'check selected_type invalid value {self.selected_type}')
+            case other:
+                raise ValueError(f'check selected_type invalid value {self.selected_type}')
 
         self.ax.set_ylim(
             1.1 * np.min(self.full_sound_stream), 1.1 * np.max(self.full_sound_stream)
@@ -146,8 +143,8 @@ class SoundVisualiser:
 
         self.canvas.draw()
 
-    def start_visualisation(self):
-        self._stream = self.audio.open(
+    def init_sound_visualisation(self):
+        self.stream = self.audio.open(
             format=pyaudio.paFloat32, channels=1, rate=self.fs, output=True,
             frames_per_buffer=PACKAGE_LENGTH, stream_callback=self.callback
         )
@@ -162,17 +159,45 @@ class SoundVisualiser:
         self.canvas.draw()
         return time.time()
 
+    def control_sound_stream(self, control_word):
+        match control_word:
+            case 'is_active':
+                return self.stream.is_active()
+
+            case 'start':
+                self.stream.start_stream()
+
+            case 'stop':
+                self.stream.stop_stream()
+
+            case 'close':
+                self.stream.close()
+
+            case other:
+                raise ValueError(f'Incorrect control word given: {control_word}')
+
+    def control_visualiser(self, control_word):
+        match control_word:
+            case 'init':
+                return self.init_sound_visualisation()
+
+            case 'start':
+                self.visualisation.event_source.start()
+
+            case 'stop':
+                self.visualisation.event_source.stop()
+
+            case other:
+                raise ValueError(f'Incorrect control word given: {control_word}')
+
     def set_plot(self, fs):
         self.ax.set_ylim(-1.1, 1.1)
         self.ax.set_xlim(1000 * PACKAGE_LENGTH / fs, 0)
         self.canvas.draw()
 
     def remove_plot(self):
-        try:
-            self.ax.lines.pop(0)
-
-        except IndexError:
-            pass
+        for line in self.ax.lines:
+            line.remove()
 
         self.canvas.draw()
 
@@ -209,7 +234,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self.update_progress_bar)
         self.timer.stop()
         self.start_time = None
-        self.duration = 100
+        self.duration = None
         self.running = False
         self.stopped = True
         self.error_message = None
@@ -232,7 +257,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
             self.running = True
             self.stopped = False
             self.time_progress_bar.setValue(0)
-            self.start_time = self.sv.start_visualisation()  #pylint: disable=no-member
+            self.start_time = self.sv.control_visualiser('init')
             self.pause_time = 0.0
             self.timer.start(250)
 
@@ -247,7 +272,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 
         else:
             if self.running:
-                self.sv.visualisation.event_source.stop()
+                self.sv.control_visualiser('stop')
                 self.pause_start_time = time.time()
                 self.timer.stop()
                 self.action_start_pause.setText('Run')
@@ -255,7 +280,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 
             else:
                 self.pause_time += time.time() - self.pause_start_time
-                self.sv.visualisation.event_source.start()
+                self.sv.control_visualiser('start')
                 self.timer.start(250)
                 self.action_start_pause.setText('Pause')
                 self.start_pause_button.setText('Pause')
@@ -264,23 +289,23 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 
     def play_sound(self):
         # pause audio when self.running is False; close audio when stopped
-        while self.sv.stream.is_active():
+        while self.sv.control_sound_stream('is_active'):
             if self.stopped:
                 break
 
             # pause loop
             while not self.running:
-                if self.sv.stream.is_active:
-                    self.sv.stream.stop_stream()
+                if self.sv.control_sound_stream('is_active'):
+                    self.sv.control_sound_stream('stop')
 
                 if self.stopped:
                     break
 
-            if self.running and not self.sv.stream.is_active():
-                self.sv.stream.start_stream()
+            if self.running and not self.sv.control_sound_stream('is_active'):
+                self.sv.control_sound_stream('start')
 
-        self.sv.stream.stop_stream()
-        self.sv.stream.close()
+        self.sv.control_sound_stream('stop')
+        self.sv.control_sound_stream('close')
         self.running = False
         self.stopped = True
         self.action_start_pause.setText('Start')
@@ -288,7 +313,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 
     def stop(self):
         try:
-            self.sv.visualisation.event_source.stop()
+            self.sv.control_visualiser('stop')
 
         except AttributeError:
             # just pass as stop button was pressed before visualisation had
@@ -376,7 +401,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 
         if file_name_text:
             try:
-                wave_data = wave.open(sound_file.name)
+                wave_data = wave.open(str(sound_file))
                 self.error_message = None
 
             except (wave.Error, EOFError, AttributeError):
