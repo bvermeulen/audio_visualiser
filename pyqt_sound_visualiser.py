@@ -19,7 +19,6 @@ DEFAULT_FREQUENCY = 223  # frequency in Hz
 DEFAULT_DURATION = 5.0   # length of sound stream in seconds
 INTERVAL = 100           # plot interval in millisecond
 PACKAGE_LENGTH = 1024    # number of samples in sound package
-VOLUME_RESOLUTION = 0.02 # resolution in volume scale (0 - 1)
 
 class SoundType(IntEnum):
     NOTE = auto()
@@ -36,6 +35,8 @@ class SamplingRate(IntEnum):
 
 
 class MplCanvas(FigureCanvas):
+    ''' Class that creates a canvas instance
+    '''
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.ax = self.fig.add_subplot(111)
@@ -46,16 +47,19 @@ class MplCanvas(FigureCanvas):
 
 
 class SoundVisualiser:
-
+    ''' Methods to play and visualise audio sound
+    '''
     def __init__(self):
         self.audio = pyaudio.PyAudio()
         self.out = ''
-        self._canvas = MplCanvas(self)
+        self._canvas = MplCanvas()
         self.fig, self.ax = self.canvas.get_fig_ax()
         self.fs = None
         self._stream = None
         self._start_time = None
         self._volume = None
+        self.full_sound_stream = None
+        self.sound_stream = None
 
     @property
     def volume(self):
@@ -107,11 +111,11 @@ class SoundVisualiser:
 
             a = struct.unpack(self.fmt, sound_byte_str)
             a = [float(val) for val in a]
-            self.sound_stream = np.array(a).astype(np.float32)
+            sound_stream = np.array(a).astype(np.float32)
             scale_factor = max(
-                abs(np.min(self.sound_stream)), abs(np.max(self.sound_stream))
+                abs(np.min(sound_stream)), abs(np.max(sound_stream))
             )
-            self.full_sound_stream = self.sound_stream / scale_factor
+            self.full_sound_stream = sound_stream / scale_factor
 
         else:
             raise ValueError(f'check selected_type invalid value {self.selected_type}')
@@ -174,17 +178,24 @@ class SoundVisualiser:
 
 
 class PyqtMainWindow(QtWidgets.QMainWindow):
-
+    '''  PyQt view and control
+    '''
     def __init__(self, sv_instance, *args, **kwargs):
         super().__init__(*args, **kwargs)
         uic.loadUi(Path(__file__).parent / 'audio_visualiser.ui', self)
         self.sv = sv_instance
+        self.plot_layout.addWidget(self.sv.canvas)
         self.action_exit.triggered.connect(self.quit)
         self.action_start_pause.triggered.connect(self.control_start_pause)
         self.action_stop.triggered.connect(self.stop)
+        self.start_pause_button.clicked.connect(self.control_start_pause)
+        self.stop_button.clicked.connect(self.stop)
         self.rb_note.clicked.connect(self.note_options)
         self.rb_design.clicked.connect(self.design_options)
         self.rb_file.clicked.connect(self.file_options)
+        self.input_note_frequency.editingFinished.connect(self.note_options)
+        self.input_note_duration.editingFinished.connect(self.note_options)
+        self.input_design_duration.editingFinished.connect(self.design_options)
         self.rb_2048.toggled.connect(lambda: self.set_sampling_rate(SamplingRate.sr2048))
         self.rb_4096.toggled.connect(lambda: self.set_sampling_rate(SamplingRate.sr4096))
         self.rb_8192.toggled.connect(lambda: self.set_sampling_rate(SamplingRate.sr8192))
@@ -207,7 +218,6 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
         self.start_time = None
         self.rb_4096.setChecked(True)
         self.volume_slider.setValue(25)
-        self.plot_layout.addWidget(self.sv.canvas)
         self.rb_note.setChecked(True)
         self.note_options()
 
@@ -219,11 +229,11 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
             self.sv.remove_plot()
             self.set_frequency_duration()
 
-            self.time_progress_bar.setValue(0)
             self.running = True
             self.stopped = False
-            self.action_start_pause.setText('Pause')
+            self.time_progress_bar.setValue(0)
             self.start_time = self.sv.start_visualisation()  #pylint: disable=no-member
+            self.pause_time = 0.0
             self.timer.start(250)
 
             # start audio deamon in a seperate thread as otherwise audio and
@@ -231,21 +241,26 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
             self.x = threading.Thread(target=self.play_sound)
             self.x.daemon = True
             self.x.start()
-            return
 
-        if self.running:
-            self.sv.visualisation.event_source.stop()
-            self.pause_start_time = time.time()
-            self.action_start_pause.setText('Run')
-            self.timer.stop()
+            self.action_start_pause.setText('Pause')
+            self.start_pause_button.setText('Pause')
 
         else:
-            self.pause_time += time.time() - self.pause_start_time
-            self.sv.visualisation.event_source.start()
-            self.action_start_pause.setText('Pause')
-            self.timer.start(250)
+            if self.running:
+                self.sv.visualisation.event_source.stop()
+                self.pause_start_time = time.time()
+                self.timer.stop()
+                self.action_start_pause.setText('Run')
+                self.start_pause_button.setText('Run')
 
-        self.running = not self.running
+            else:
+                self.pause_time += time.time() - self.pause_start_time
+                self.sv.visualisation.event_source.start()
+                self.timer.start(250)
+                self.action_start_pause.setText('Pause')
+                self.start_pause_button.setText('Pause')
+
+            self.running = not self.running
 
     def play_sound(self):
         # pause audio when self.running is False; close audio when stopped
@@ -266,10 +281,10 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
 
         self.sv.stream.stop_stream()
         self.sv.stream.close()
-
         self.running = False
         self.stopped = True
         self.action_start_pause.setText('Start')
+        self.start_pause_button.setText('Start')
 
     def stop(self):
         try:
@@ -346,7 +361,7 @@ class PyqtMainWindow(QtWidgets.QMainWindow):
         self.stacked_widget_sound_type.setCurrentIndex(2)
         self.stacked_widget_status.setCurrentIndex(1)
         sound_file = QtWidgets.QFileDialog.getOpenFileName(
-            self, 'Open file','.','Sound files (*.wav, *.*)'
+            self, 'Open file','.','Sound files (*.wav)'
         )
         sound_file = Path(sound_file[0])
         if (sound_file_txt := sound_file.name):
