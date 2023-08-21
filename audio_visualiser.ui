@@ -45,7 +45,7 @@
       </rect>
      </property>
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="stacked_widget_note">
       <widget class="QLabel" name="note_frequency_label">
@@ -64,7 +64,7 @@
       <widget class="QLineEdit" name="input_note_frequency">
        <property name="geometry">
         <rect>
-         <x>80</x>
+         <x>90</x>
          <y>20</y>
          <width>41</width>
          <height>22</height>
@@ -77,7 +77,7 @@
       <widget class="QLineEdit" name="input_note_duration">
        <property name="geometry">
         <rect>
-         <x>190</x>
+         <x>200</x>
          <y>20</y>
          <width>41</width>
          <height>22</height>
@@ -110,7 +110,7 @@
         <rect>
          <x>20</x>
          <y>20</y>
-         <width>41</width>
+         <width>61</width>
          <height>21</height>
         </rect>
        </property>
@@ -121,7 +121,7 @@
       <widget class="QLineEdit" name="input_design_duration">
        <property name="geometry">
         <rect>
-         <x>60</x>
+         <x>70</x>
          <y>20</y>
          <width>41</width>
          <height>22</height>
@@ -202,7 +202,6 @@
      <property name="font">
       <font>
        <pointsize>10</pointsize>
-       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
@@ -242,7 +241,7 @@
       </rect>
      </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="status_note_design">
       <widget class="QRadioButton" name="rb_2048">
@@ -378,7 +377,6 @@
      <property name="font">
       <font>
        <pointsize>10</pointsize>
-       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
@@ -420,7 +418,6 @@
      <property name="font">
       <font>
        <pointsize>10</pointsize>
-       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
@@ -466,7 +463,6 @@
      <property name="font">
       <font>
        <pointsize>10</pointsize>
-       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
@@ -519,7 +515,7 @@
      <x>0</x>
      <y>0</y>
      <width>1098</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_audio_visualiser">

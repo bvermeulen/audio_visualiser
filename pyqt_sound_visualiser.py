@@ -4,8 +4,8 @@ import threading
 import struct
 from pathlib import Path
 from enum import auto, IntEnum
-from PyQt5.QtCore import QTimer
-from PyQt5 import uic, QtWidgets
+from PyQt6.QtCore import QTimer
+from PyQt6 import uic, QtWidgets
 import numpy as np
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -73,9 +73,10 @@ class SoundVisualiser:
     def canvas(self):
         return self._canvas
 
-    def generate_sound_stream(self, selected_type, frequency, fs, duration, wave_data=None):
+    def generate_sound_stream(self, selected_type, frequency, fs, duration, sound_file=None):
         self.fs = fs
         self.duration = duration
+        valid = True
         match selected_type:
             case SoundType.NOTE:
                 self.full_sound_stream = (
@@ -90,8 +91,14 @@ class SoundVisualiser:
                 ).astype(np.float32)
 
             case SoundType.FILE:
-                if wave_data is None:
-                    return self.fs, self.duration
+                if sound_file is None:
+                    return self.fs, self.duration, False
+
+                try:
+                    wave_data = wave.open(str(sound_file))
+
+                except (wave.Error, EOFError, AttributeError):
+                    return self.fs, self.duration, False
 
                 frames = wave_data.getnframes()
                 channels = wave_data.getnchannels()
@@ -99,20 +106,20 @@ class SoundVisualiser:
                 self.fs = wave_data.getframerate()
                 sound_byte_str = wave_data.readframes(frames)
                 self.duration = frames / self.fs * channels
+                wave_data.close()
 
                 if sample_width == 1:
-                    self.fmt = f'{int(frames * channels)}B'
+                    fmt = f'{int(frames * channels)}B'
 
                 else:
-                    self.fmt = f'{int(frames * channels)}h'
+                    fmt = f'{int(frames * channels)}h'
 
-                a = struct.unpack(self.fmt, sound_byte_str)
-                a = [float(val) for val in a]
+                a = struct.unpack(fmt, sound_byte_str)
                 sound_stream = np.array(a).astype(np.float32)
-                scale_factor = max(
+                scale_factor = 1.0 / max(
                     abs(np.min(sound_stream)), abs(np.max(sound_stream))
                 )
-                self.full_sound_stream = sound_stream / scale_factor
+                self.full_sound_stream = sound_stream * scale_factor
 
             case other:
                 raise ValueError(f'check selected_type invalid value {self.selected_type}')
@@ -122,7 +129,7 @@ class SoundVisualiser:
         )
         self.ax.set_xlim(1000 * PACKAGE_LENGTH / self.fs, 0)
         self.canvas.draw()
-        return self.fs, self.duration
+        return self.fs, self.duration, valid
 
     def callback(self, in_data, frame_count, time_info, status):
         self.out = self.sound_stream[:frame_count]
@@ -368,6 +375,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
             self.input_design_duration.setText(str(self.duration))
 
     def note_options(self):
+        self.error_message = None
         self.selected_type = SoundType.NOTE
         self.stacked_widget_sound_type.setCurrentIndex(0)
         self.stacked_widget_status.setCurrentIndex(0)
@@ -375,6 +383,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.sv.generate_sound_stream(self.selected_type, self.frequency, self.fs, self.duration)
 
     def design_options(self):
+        self.error_message = None
         self.selected_type = SoundType.DESIGN
         self.stacked_widget_sound_type.setCurrentIndex(1)
         self.stacked_widget_status.setCurrentIndex(0)
@@ -382,6 +391,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.sv.generate_sound_stream(self.selected_type, self.frequency, self.fs, self.duration)
 
     def file_options(self):
+        self.error_message = None
         self.selected_type = SoundType.FILE
         self.stacked_widget_sound_type.setCurrentIndex(2)
         self.stacked_widget_status.setCurrentIndex(1)
@@ -392,7 +402,6 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         if (sound_file_txt := sound_file.name):
             file_name_text = f'Sound file: {sound_file_txt}  '
             self.input_file.setText(file_name_text)
-            self.error_message = None
 
         else:
             self.error_message = 'No file selected ...'
@@ -400,18 +409,17 @@ class PyqtViewControl(QtWidgets.QMainWindow):
             file_name_text = None
 
         if file_name_text:
-            try:
-                wave_data = wave.open(str(sound_file))
-                self.error_message = None
+            fs, duration, valid = self.sv.generate_sound_stream(
+                self.selected_type, 0, 0, 0, sound_file=sound_file
+            )
+            if valid:
+                self.fs = fs
+                self.duration = duration
 
-            except (wave.Error, EOFError, AttributeError):
+            else:
                 self.error_message = 'Invalid wav file ...'
                 self.input_file.setText(self.error_message)
-                return
 
-            self.fs, self.duration = self.sv.generate_sound_stream(
-                self.selected_type, 0, 0, 0, wave_data=wave_data
-            )
             self.input_status_sampling_rate.setText(f'{self.fs}')
             self.input_status_duration.setText(f'{self.duration:.1f}')
 
