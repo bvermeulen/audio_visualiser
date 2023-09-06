@@ -394,9 +394,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.sv.control_sound_stream("stop")
         self.sv.control_sound_stream("close")
         self.running = False
-        self.stop()
-        self.action_start_pause.setText("Start")
-        self.start_pause_button.setText("Start")
+        self.stopped = True
 
     def stop(self):
         try:
@@ -408,6 +406,8 @@ class PyqtViewControl(QtWidgets.QMainWindow):
             pass
         self.stopped = True
         self.enable_disable_buttons(enable_buttons=True)
+        self.action_start_pause.setText("Start")
+        self.start_pause_button.setText("Start")
         self.timer.stop()
 
     def update_progress_bar(self):
@@ -415,6 +415,8 @@ class PyqtViewControl(QtWidgets.QMainWindow):
             100 * (time.time() - self.pause_time - self.start_time) / self.duration
         )
         self.time_progress_bar.setValue(int(elapsed_time))
+        if elapsed_time > 100:
+            self.stop()
 
     def set_sampling_rate(self, sampling_rate):
         self.fr = 2**sampling_rate
