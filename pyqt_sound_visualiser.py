@@ -394,7 +394,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.sv.control_sound_stream("stop")
         self.sv.control_sound_stream("close")
         self.running = False
-        self.stopped = True
+        self.stop()
         self.action_start_pause.setText("Start")
         self.start_pause_button.setText("Start")
 
