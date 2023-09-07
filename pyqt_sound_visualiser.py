@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import io
@@ -287,8 +288,9 @@ class PyqtViewControl(QtWidgets.QMainWindow):
     """PyQt view and control"""
 
     def __init__(self, sv_instance, *args, **kwargs):
+        ui_file = "audio_visualiser.ui" if os.name == "nt" else "audio_visualiser_posix.ui"
         super().__init__(*args, **kwargs)
-        uic.loadUi(Path(__file__).parent / "audio_visualiser.ui", self)
+        uic.loadUi(Path(__file__).parent / ui_file, self)
         self.sv = sv_instance
         self.plot_layout.addWidget(self.sv.canvas)
         self.action_exit.triggered.connect(self.quit)
@@ -510,8 +512,9 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         )
         sound_file = Path(sound_file[0])
         if sound_file_txt := sound_file.name:
-            file_name_text = f"Sound file: {sound_file_txt}  "
+            file_name_text = f"{sound_file_txt}  "
             self.input_file.setText(file_name_text)
+            self.input_file.setCursorPosition(0)
 
         else:
             self.error_message = "No file selected ..."
