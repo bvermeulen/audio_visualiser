@@ -1,15 +1,16 @@
 import sys
 import time
 import io
-from functools import partial
 import threading
 import struct
-from pathlib import Path
 from enum import auto, IntEnum
-from PyQt6.QtCore import QTimer
-from PyQt6 import uic, QtWidgets
+from pathlib import Path
+from functools import partial
 import numpy as np
 import matplotlib
+from pydub import AudioSegment
+from PyQt6.QtCore import QTimer
+from PyQt6 import uic, QtWidgets
 
 matplotlib.use("Qt5Agg")
 from matplotlib.figure import Figure
@@ -39,9 +40,7 @@ class SamplingRate(IntEnum):
 
 
 def wav_generator(wav_file, chunk):
-    if isinstance(wav_file, Path):
-        wav_file = str(wav_file)
-    else:
+    if isinstance(wav_file, io.BytesIO):
         wav_file.seek(0)
 
     with wave.open(wav_file, "rb") as wf:
@@ -104,13 +103,18 @@ class SoundVisualiser:
     def canvas(self):
         return self._canvas
 
-    def handle_sound_wav(self, selected_type, frequency, fr, duration, sound_file=None):
+    def handle_sound_type(
+        self,
+        selected_type: SoundType,
+        frequency: float,
+        fr: float,
+        duration: float,
+        sound_file: Path = None,
+    ) -> bool:
         valid = True
 
         def write_stream_to_wav_file(file_name, sound_stream, fr, volume_factor):
-            sound_stream = (sound_stream * (2**15 - 1) * volume_factor).astype(
-                "h"
-            )
+            sound_stream = (sound_stream * (2**15 - 1) * volume_factor).astype("h")
             with wave.open(file_name, "wb") as wf:
                 wf.setnchannels(1)
                 wf.setsampwidth(2)
@@ -142,13 +146,19 @@ class SoundVisualiser:
                 )
 
             case SoundType.FILE:
-                self.wav_file = sound_file
                 self.volume_factor = 1e-5 * 3.0
-                if self.wav_file is None:
+                if sound_file is None:
                     return False
 
+                if sound_file.suffix == ".mp3":
+                    self.wav_file = io.BytesIO()
+                    raw_audio = AudioSegment.from_mp3(sound_file)
+                    raw_audio.export(self.wav_file, format="wav")
+                else:
+                    self.wav_file = str(sound_file)
+
                 try:
-                    wave_data = wave.open(str(self.wav_file))
+                    wave_data = wave.open(self.wav_file)
                     wave_data.close()
 
                 except (wave.Error, EOFError, AttributeError):
@@ -469,7 +479,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.stacked_widget_sound_type.setCurrentIndex(0)
         self.stacked_widget_status.setCurrentIndex(0)
         self.set_frequency_duration()
-        self.sv.handle_sound_wav(
+        self.sv.handle_sound_type(
             self.selected_type, self.frequency, self.fr, self.duration
         )
 
@@ -481,7 +491,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.stacked_widget_sound_type.setCurrentIndex(1)
         self.stacked_widget_status.setCurrentIndex(0)
         self.set_frequency_duration()
-        self.sv.handle_sound_wav(
+        self.sv.handle_sound_type(
             self.selected_type, self.frequency, self.fr, self.duration
         )
 
@@ -493,7 +503,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
         self.stacked_widget_sound_type.setCurrentIndex(2)
         self.stacked_widget_status.setCurrentIndex(1)
         sound_file = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Open file", ".", "Sound files (*.wav)"
+            self, "Open file", ".", "Sound files (*.wav *.mp3)"
         )
         sound_file = Path(sound_file[0])
         if sound_file_txt := sound_file.name:
@@ -506,7 +516,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
             file_name_text = None
 
         if file_name_text:
-            valid = self.sv.handle_sound_wav(
+            valid = self.sv.handle_sound_type(
                 self.selected_type, 0, 0, 0, sound_file=sound_file
             )
             if not valid:
@@ -523,6 +533,8 @@ class PyqtViewControl(QtWidgets.QMainWindow):
 
 
 def start_app():
+    # ['Breeze', 'Oxygen', 'QtCurve', 'Windows', 'Fusion']
+    QtWidgets.QApplication.setStyle("Oxugen")
     app = QtWidgets.QApplication([])
     sv = SoundVisualiser()
     view_control = PyqtViewControl(sv)
