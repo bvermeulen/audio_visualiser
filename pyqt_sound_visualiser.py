@@ -537,7 +537,7 @@ class PyqtViewControl(QtWidgets.QMainWindow):
 
 def start_app():
     # ['Breeze', 'Oxygen', 'QtCurve', 'Windows', 'Fusion']
-    QtWidgets.QApplication.setStyle("Oxugen")
+    QtWidgets.QApplication.setStyle("Oxygen")
     app = QtWidgets.QApplication([])
     sv = SoundVisualiser()
     view_control = PyqtViewControl(sv)
