@@ -8,7 +8,7 @@ from pathlib import Path
 from functools import partial
 import numpy as np
 import matplotlib
-from pydub import AudioSegment
+import pydub
 from PyQt6.QtCore import QTimer
 from PyQt6 import uic, QtWidgets
 
@@ -152,8 +152,11 @@ class SoundVisualiser:
 
                 if sound_file.suffix == ".mp3":
                     self.wav_file = io.BytesIO()
-                    raw_audio = AudioSegment.from_mp3(sound_file)
-                    raw_audio.export(self.wav_file, format="wav")
+                    try:
+                        raw_audio = pydub.AudioSegment.from_mp3(sound_file)
+                        raw_audio.export(self.wav_file, format="wav")
+                    except pydub.exceptions.CouldntDecodeError:
+                        return False
                 else:
                     self.wav_file = str(sound_file)
 
